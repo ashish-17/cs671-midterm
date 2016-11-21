@@ -4,7 +4,6 @@
 #SBATCH -o AJ523_MIDTERM.%J.stdout
 #SBATCH -e AJ523_MIDTERM.%J.stderr
 #SBATCH -p main
-#SBATCH --reservation mp002
 #SBATCH -N 2
 #SBATCH -t 00:10:00
 
