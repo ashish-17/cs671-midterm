@@ -14,12 +14,8 @@ int calc_omp(double **A, int rows, int cols, int iters, double tolerance, int nu
 double verify(double **A, double **B, int rows, int cols);
 
 int main(int argc, char** argv) {
-    int rank = 0;
-    int comm_size = 0;
-    int tag = 0;
-    int retVal = 0;
     int choice = 0;
-    int i, j;
+    int i;
     if (argc > 1) {
         choice = atoi(argv[1]);
     }
@@ -56,7 +52,7 @@ int main(int argc, char** argv) {
     
     startTime = usecs();
     if (choice == 0) {
-        calc_serial(A, rows, cols, iters, TOLERANCE);
+        calc_serial_v1(A, rows, cols, iters, TOLERANCE);
     } else if (choice == 1) {
         calc_omp(A, rows, cols, iters, TOLERANCE, num_threads);
     }
@@ -65,7 +61,7 @@ int main(int argc, char** argv) {
     
     double err = verify(orig, A, rows, cols);
     
-    printf("Time = %ld us, with error %f", diffTime, err);
+    printf("%d,%d,%ld,%f,%d\n",rows*cols,iters, diffTime, err, choice);
     
     return 0;
 }
@@ -133,7 +129,7 @@ int calc_serial(double **A, int rows, int cols, int iters, double tolerance) {
 
 int calc_serial_v1(double **A, int rows, int cols, int iters, double tolerance) {
     int convergence = 0;
-    double diff, tmp;
+    double diff;
     int i,j;
     int for_iters;
 
