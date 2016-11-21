@@ -13,6 +13,7 @@ void initialize(double **A, int rows, int cols);
 int calc_serial(double **A, int rows, int cols, int iters, double tolerance);
 int calc_serial_v1(double **A, int rows, int cols, int iters, double tolerance);
 int calc_omp(double **A, int rows, int cols, int iters, double tolerance, int num_threads);
+int calc_gpu(double **A, int rows, int cols, int iters, double tolerance) {
 double verify(double **A, double **B, int rows, int cols);
 
 __global__ void calc_gpu(int* d_arr) {
@@ -46,10 +47,12 @@ int main(int argc, char * argv[])
     }
 
     double **A = (double**)malloc((rows+1)*sizeof(double*));
+    double *A_mem = (double*)malloc((rows+1)(cols+1) * sizeof(double));
     double **orig = (double**)malloc((rows+1)*sizeof(double*));
+    double *orig_mem = (double*)malloc((rows+1)(cols+1) * sizeof(double));
     for (i = 0; i < rows+1; ++i) {
-        A[i] = (double*)malloc((cols+1) * sizeof(double));
-        orig[i] = (double*)malloc((cols+1) * sizeof(double));
+        A[i] = A_mem[i*(cols+1)];
+        orig[i] = orig_mem[i*(cols+1)];
     }
 
     initialize(A, rows, cols);
@@ -63,9 +66,11 @@ int main(int argc, char * argv[])
 
     startTime = usecs();
     if (choice == 0) {
-        calc_serial(A, rows, cols, iters, TOLERANCE);
+        calc_serial_v1(A, rows, cols, iters, TOLERANCE);
     } else if (choice == 1) {
         calc_omp(A, rows, cols, iters, TOLERANCE, num_threads);
+    } else if (choice == 2) {
+	calc_gpu(A, rows, cols, iters, TOLERANCE);
     }
     endTime = usecs();
     diffTime = endTime-startTime;
@@ -74,7 +79,7 @@ int main(int argc, char * argv[])
 
     printf("Time = %ld us, with error %f", diffTime, err);
 
-    dim3 grid(10);
+    /*dim3 grid(10);
     dim3 block(1);
 
     int h_arr[] = {1,2,3,4,5,6,7,8,9,10};
@@ -87,7 +92,7 @@ int main(int argc, char * argv[])
     cudaMemcpy(h_arr, d_arr, 10*sizeof(int), cudaMemcpyDeviceToHost);
     for (i=0; i < 10; ++i) {
         printf(" %d", h_arr[i]);
-    }
+    }*/
     return 0;
 }
 
@@ -229,4 +234,45 @@ int calc_omp(double **A, int rows, int cols, int iters, double tolerance, int nu
 
     //printf("\nConvP = %d", convergence);
     return convergence;
+}
+
+__global__ void calc_kernel(double* w, double* r, int rows, int cols, double tolerance) {
+	int row = blockIdx.x;	
+	int col = threadIdx.x;
+	int idx = row*blockDim.x + col;
+	int i = 0;
+	double sum = 0.0;
+	if (row < rows && row > 0 && col < cols) {
+		w[idx] = 0.2*(r[idx+1] + r[idx - 1] + r[(row-1)*blockDim.x + col] + r[(row+1)*blockDim.x + col]);   
+	}
+}
+
+int calc_gpu(double **A, int rows, int cols, int iters, double tolerance) {
+	double* d_A_curr;
+	double* d_A_tmp;
+	cudaMalloc(&d_A_curr, (rows+1)*(cols+1)*sizeof(double));
+	cudaMalloc(&d_A_tmp, (rows+1)*(cols+1)*sizeof(double));
+	cudaMemcpy(d_A_curr, A[0], (rows+1)*(cols+1)*sizeof(double), cudaMemcpyHostToDevice);		
+	cudaMemcpy(d_A_tmp, A[0], (rows+1)*(cols+1)*sizeof(double), cudaMemcpyHostToDevice);
+
+	int tileSize = 100;
+	int nTiles = N / rows + (N % tileSize == 0) ? 0 : 1;
+	
+	int for_iters;
+	for (for_iters = 0; for_iters < iters; ++for_iters) {
+		if (for_iters % 2 == 0) {
+			calc_kernel<<<nTiles, tileSize>>>(d_A_curr, d_A_tmp, rows, cols, tolerance);
+		} else {
+			calc_kernel<<<nTiles, tileSize>>>(d_A_tmp, d_A_curr, rows, cols, tolerance);
+		}			
+	}	
+
+	if (iters %2 == 0) {
+		cudaMemcpy(A[0], d_A_curr, (rows+1)*(cols+1)*sizeof(double), cudaMemcpyDeviceToHost);		
+	} else {
+		cudaMemcpy(A[0], d_A_tmp, (rows+1)*(cols+1)*sizeof(double), cudaMemcpyDeviceToHost);		
+	}	
+	
+	cudaFree(d_A_curr);		
+	cudaFree(d_A_tmp);		
 }
