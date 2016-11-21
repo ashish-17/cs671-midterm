@@ -45,11 +45,11 @@ int main(int argc, char * argv[])
         num_threads = atoi(argv[4]);
     }
 
-    double **A = malloc((rows+1)*sizeof(double*));
-    double **orig = malloc((rows+1)*sizeof(double*));
+    double **A = (double**)malloc((rows+1)*sizeof(double*));
+    double **orig = (double**)malloc((rows+1)*sizeof(double*));
     for (i = 0; i < rows+1; ++i) {
-        A[i] = malloc((cols+1) * sizeof(double));
-        orig[i] = malloc((cols+1) * sizeof(double));
+        A[i] = (double*)malloc((cols+1) * sizeof(double));
+        orig[i] = (double*)malloc((cols+1) * sizeof(double));
     }
 
     initialize(A, rows, cols);

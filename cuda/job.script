@@ -12,7 +12,8 @@ sleep 3
 echo ============== START ==============
 hostname
 module load cuda
+module load openmpi
 make
-./solver
+./solver 0 20 500 10
 echo =============== END ===============
 sleep 3
