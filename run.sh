@@ -8,8 +8,8 @@
 #SBATCH -t 00:10:00
 
 #Uncomment following lines before running on caliburn
-#cd $HOME/cs671-midterm
-#module load openmpi
+cd $HOME/cs671-midterm
+module load openmpi
 #sleep 3
 
 set -e

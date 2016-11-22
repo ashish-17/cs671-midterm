@@ -13,7 +13,7 @@ void initialize(double **A, int rows, int cols);
 int calc_serial(double **A, int rows, int cols, int iters, double tolerance);
 int calc_serial_v1(double **A, int rows, int cols, int iters, double tolerance);
 int calc_omp(double **A, int rows, int cols, int iters, double tolerance, int num_threads);
-int calc_gpu(double **A, int rows, int cols, int iters, double tolerance) {
+int calc_gpu(double **A, int rows, int cols, int iters, double tolerance);
 double verify(double **A, double **B, int rows, int cols);
 
 __global__ void calc_gpu(int* d_arr) {
@@ -22,12 +22,8 @@ __global__ void calc_gpu(int* d_arr) {
 
 int main(int argc, char * argv[])
 {
-    int rank = 0;
-    int comm_size = 0;
-    int tag = 0;
-    int retVal = 0;
     int choice = 0;
-    int i, j;
+    int i;
     if (argc > 1) {
         choice = atoi(argv[1]);
     }
@@ -47,12 +43,12 @@ int main(int argc, char * argv[])
     }
 
     double **A = (double**)malloc((rows+1)*sizeof(double*));
-    double *A_mem = (double*)malloc((rows+1)(cols+1) * sizeof(double));
+    double *A_mem = (double*)malloc((rows+1)*(cols+1) * sizeof(double));
     double **orig = (double**)malloc((rows+1)*sizeof(double*));
-    double *orig_mem = (double*)malloc((rows+1)(cols+1) * sizeof(double));
+    double *orig_mem = (double*)malloc((rows+1)*(cols+1) * sizeof(double));
     for (i = 0; i < rows+1; ++i) {
-        A[i] = A_mem[i*(cols+1)];
-        orig[i] = orig_mem[i*(cols+1)];
+        A[i] = &A_mem[i*(cols+1)];
+        orig[i] = &orig_mem[i*(cols+1)];
     }
 
     initialize(A, rows, cols);
@@ -159,7 +155,7 @@ int calc_serial(double **A, int rows, int cols, int iters, double tolerance) {
 
 int calc_serial_v1(double **A, int rows, int cols, int iters, double tolerance) {
     int convergence = 0;
-    double diff, tmp;
+    double diff;
     int i,j;
     int for_iters;
 
@@ -240,8 +236,6 @@ __global__ void calc_kernel(double* w, double* r, int rows, int cols, double tol
 	int row = blockIdx.x;	
 	int col = threadIdx.x;
 	int idx = row*blockDim.x + col;
-	int i = 0;
-	double sum = 0.0;
 	if (row < rows && row > 0 && col < cols) {
 		w[idx] = 0.2*(r[idx+1] + r[idx - 1] + r[(row-1)*blockDim.x + col] + r[(row+1)*blockDim.x + col]);   
 	}
@@ -256,7 +250,7 @@ int calc_gpu(double **A, int rows, int cols, int iters, double tolerance) {
 	cudaMemcpy(d_A_tmp, A[0], (rows+1)*(cols+1)*sizeof(double), cudaMemcpyHostToDevice);
 
 	int tileSize = 100;
-	int nTiles = N / rows + (N % tileSize == 0) ? 0 : 1;
+	int nTiles = rows / tileSize + (rows % tileSize == 0) ? 0 : 1;
 	
 	int for_iters;
 	for (for_iters = 0; for_iters < iters; ++for_iters) {
@@ -275,4 +269,5 @@ int calc_gpu(double **A, int rows, int cols, int iters, double tolerance) {
 	
 	cudaFree(d_A_curr);		
 	cudaFree(d_A_tmp);		
+	return 0;
 }
